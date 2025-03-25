@@ -1,10 +1,6 @@
 import os
-import openai
 import json
-import requests
 from openai import OpenAI
-from bs4 import BeautifulSoup
-
 
 MODEL_NAME = "qwen-max"
 client = OpenAI(
