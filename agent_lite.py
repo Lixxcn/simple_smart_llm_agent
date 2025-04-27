@@ -1,12 +1,16 @@
 import os
 import json
 from openai import OpenAI
+from dotenv import load_dotenv
 
-MODEL_NAME = "qwen-plus"
+load_dotenv()
+
+MODEL_NAME = os.environ.get("MODEL_NAME")
 client = OpenAI(
-    api_key = os.environ.get("OPENAI_API_KEY"),
-    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    api_key=os.environ.get("OPENAI_API_KEY"),
+    base_url=os.environ.get("OPENAI_API_BASE"),
 )
+
 
 def exec_python_code(code: str):
     print(code)
@@ -17,6 +21,7 @@ def exec_python_code(code: str):
     except Exception as e:
         print("失败了 %s" % str(e))
         return {"result": None, "error": str(e)}
+
 
 # 定义可用工具列表（函数描述）
 tools = [
@@ -30,13 +35,13 @@ tools = [
                 "properties": {
                     "code": {
                         "type": "string",
-                        "description": "要执行的Python代码片段。"
+                        "description": "要执行的Python代码片段。",
                     }
                 },
-                "required": ["code"]
-            }
+                "required": ["code"],
+            },
         },
-        "strict": True
+        "strict": True,
     }
 ]
 
@@ -59,7 +64,7 @@ messages = [
             "- 必须确保返回结果与用户任务高度相关，绝不允许使用未经验证的URL或无关信息。\n"
             "- 必须主动且深入地解决问题，不得泛泛而谈或笼统告知任务无法完成。\n\n"
             "现在，请开始执行用户提出的任务。"
-        )
+        ),
     }
 ]
 
@@ -87,11 +92,9 @@ while True:
                     result = exec_python_code(args["code"])
             except Exception as e:
                 result = f"错误信息：{e}"
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": str(result)
-            })
+            messages.append(
+                {"role": "tool", "tool_call_id": tool_call.id, "content": str(result)}
+            )
         completion = client.chat.completions.create(
             model=MODEL_NAME, messages=messages, tools=tools
         )

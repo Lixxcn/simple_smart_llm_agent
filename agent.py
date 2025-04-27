@@ -1,12 +1,17 @@
 import os
 import json
 from openai import OpenAI
+from dotenv import load_dotenv
 
-MODEL_NAME = "qwen-max"
+
+load_dotenv()
+
+MODEL_NAME = os.environ.get("MODEL_NAME")
 client = OpenAI(
-    api_key = os.environ.get("OPENAI_API_KEY"),
-    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    api_key=os.environ.get("OPENAI_API_KEY"),
+    base_url=os.environ.get("OPENAI_API_BASE"),
 )
+
 
 def exec_python_code(code: str):
     try:
@@ -17,21 +22,26 @@ def exec_python_code(code: str):
         print("失败了 %s" % str(e))
         return {"result": None, "error": str(e)}
 
+
 from googlesearch import search
+
 
 def google_search(query: str, num_results: int = 5):
     results = []
-    for url in search(query, num_results=num_results, lang='zh-CN'):
+    for url in search(query, num_results=num_results, lang="zh-CN"):
         results.append(url)
     return results
 
 
 import logging
+
 logging.disable(logging.CRITICAL)
 from newspaper import Article
+
+
 def fetch_webpage_content(url: str, max_total_length: int = 4500):
     try:
-        article = Article(url, language='zh')
+        article = Article(url, language="zh")
         article.download()
         article.parse()
     except Exception as e:
@@ -40,24 +50,32 @@ def fetch_webpage_content(url: str, max_total_length: int = 4500):
     # 提取主体文本并截断
     text_content = article.text.strip()
     if len(text_content) > max_total_length:
-        text_content = text_content[:max_total_length] + '...'
+        text_content = text_content[:max_total_length] + "..."
 
     # 提取图片链接（主体图片+其他图片）
     images = list(article.images)
 
     # 主图优先
     if article.top_image:
-        images = [article.top_image] + [img for img in images if img != article.top_image]
+        images = [article.top_image] + [
+            img for img in images if img != article.top_image
+        ]
 
     images_content = "\n".join(f"[IMAGE:{img}]" for img in images[:5])  # 限制前5张
 
-    final_content = f"[TEXT:{text_content}]\n\n{images_content}" if images else f"[TEXT:{text_content}]"
+    final_content = (
+        f"[TEXT:{text_content}]\n\n{images_content}"
+        if images
+        else f"[TEXT:{text_content}]"
+    )
 
     return final_content if final_content else "未能提取到有效内容。"
+
 
 def parse_pdf(file_path: str) -> str:
     try:
         import PyPDF2
+
         text = ""
         with open(file_path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
@@ -82,13 +100,13 @@ tools = [
                 "properties": {
                     "code": {
                         "type": "string",
-                        "description": "要执行的Python代码片段。"
+                        "description": "要执行的Python代码片段。",
                     }
                 },
-                "required": ["code"]
-            }
+                "required": ["code"],
+            },
         },
-        "strict": True
+        "strict": True,
     },
     {
         "type": "function",
@@ -99,12 +117,15 @@ tools = [
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词"},
-                    "num_results": {"type": "integer", "description": "需要返回的结果数量，默认5"}
+                    "num_results": {
+                        "type": "integer",
+                        "description": "需要返回的结果数量，默认5",
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         },
-        "strict": True
+        "strict": True,
     },
     {
         "type": "function",
@@ -114,15 +135,12 @@ tools = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "需要抓取内容的网页URL"
-                    }
+                    "url": {"type": "string", "description": "需要抓取内容的网页URL"}
                 },
-                "required": ["url"]
-            }
+                "required": ["url"],
+            },
         },
-        "strict": True
+        "strict": True,
     },
     {
         "type": "function",
@@ -134,11 +152,11 @@ tools = [
                 "properties": {
                     "file_path": {"type": "string", "description": "本地PDF文件的路径"}
                 },
-                "required": ["file_path"]
-            }
+                "required": ["file_path"],
+            },
         },
-        "strict": True
-    }
+        "strict": True,
+    },
 ]
 
 messages = [
@@ -164,7 +182,7 @@ messages = [
             "- 严禁泛泛而谈或过于笼统地告知无法找到答案，必须体现出主动、深入的解决态度。\n\n"
             "确保每次任务最终均给出完整有效的解决方案，直至用户需求被彻底满足为止。\n\n"
             "现在，请开始执行用户提出的任务。"
-        )
+        ),
     }
 ]
 
@@ -198,11 +216,9 @@ while True:
                     result = parse_pdf(args["file_path"])
             except Exception as e:
                 result = f"错误信息：{e}"
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": str(result)
-            })
+            messages.append(
+                {"role": "tool", "tool_call_id": tool_call.id, "content": str(result)}
+            )
         completion = client.chat.completions.create(
             model=MODEL_NAME, messages=messages, tools=tools
         )
